@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles.css')}}">
+    <title>Hidratlaşma Sıcaklık Tahmin Programı (XGBoost ile)</title>
+</head>
+<body>
+<div class="container">
+    <h2 class="baslik">Hidratlaşma Sıcaklık Tahmin Programı</h2>
+    <form method="POST">
+		<div class="form-container">
+            {% for feature in feature_names %}
+                <div class="input-group">
+                    <label>{{ feature }}</label>
+
+                    {% if feature == "H2O" %}
+                        <input type="number"
+                            step="any"
+                            name="{{ feature }}"
+                            value="0.07"
+                            readonly
+                            style="width:75%; background:#f0f0f0; cursor:not-allowed;">
+                    {% else %}
+                        <input type="number"
+                            step="any"
+                            name="{{ feature }}"
+                            value="{{ user_values[feature] }}"
+                            style="width:75%">
+                    {% endif %}
+                </div>
+            {% endfor %}
+		</div>
+        <input type="submit" value="Tahmin Et" style="margin-top:20px;">
+    </form>
+    {% if prediction is not none %}
+        <div class="result">
+            <strong>Temperature (C):</strong> {{ prediction }}
+        </div>
+    {% endif %}
+</div>
+</body>
+</html>

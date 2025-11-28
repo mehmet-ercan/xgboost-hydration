@@ -1,0 +1,5 @@
+/pip_paketleri
+/oldFiles
+*.pkl
+issues.txt
+/__pycache__
