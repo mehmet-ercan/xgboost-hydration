@@ -294,10 +294,10 @@ if __name__ == "__main__":
     try:
         from waitress import serve
         # PRODUCTION için:
-        # serve(app, host="0.0.0.0", port=5000)
+        serve(app, host="0.0.0.0", port=5000)
         
         # DEVELOPMENT için:
-        app.run(debug=True, use_reloader=False)
+        # app.run(debug=True, use_reloader=False)
     except Exception as e:
         print("\nUygulama başlatılırken bir hata oluştu!\n")
         print(str(e))
