@@ -7,7 +7,7 @@
 </head>
 <body>
 <div class="container">
-    <h2 class="baslik">Hidratlaşma Sıcaklık Tahmin Programı</h2>
+    <h2 class="baslik">Hidratlaşma Sıcaklık Tahmini</h2>
     
     <form method="POST">
         <!-- Basınç Aralığı -->
@@ -80,13 +80,25 @@
 
         <script>
             const ctx = document.getElementById('curveChart').getContext('2d');
+            
+            // Veriyi (x, y) formatına çevir
+            const pressures = {{ curve_data.pressures | tojson }};
+            const temperatures = {{ curve_data.temperatures | tojson }};
+            
+            const chartData = [];
+            for (let i = 0; i < temperatures.length; i++) {
+                chartData.push({
+                    x: temperatures[i],  // X ekseni: Sıcaklık
+                    y: pressures[i]      // Y ekseni: Basınç
+                });
+            }
+            
             new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: {{ curve_data.pressures | tojson }},
                     datasets: [{
                         label: 'Hidrat Eğrisi',
-                        data: {{ curve_data.temperatures | tojson }},
+                        data: chartData,
                         borderColor: 'rgb(33, 150, 243)',
                         backgroundColor: 'rgba(33, 150, 243, 0.1)',
                         tension: 0.4,
@@ -102,7 +114,7 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Basınç (bar) - Sıcaklık (°C) İlişkisi',
+                            text: 'Sıcaklık (°C) - Basınç (bar) İlişkisi',
                             font: {
                                 size: 16
                             }
@@ -113,28 +125,30 @@
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return 'Sıcaklık: ' + context.parsed.y + ' °C';
+                                    return 'Basınç: ' + context.parsed.y.toFixed(2) + ' bar';
                                 },
                                 title: function(context) {
-                                    return 'Basınç: ' + context[0].parsed.x + ' bar';
+                                    return 'Sıcaklık: ' + context[0].parsed.x.toFixed(2) + ' °C';
                                 }
                             }
                         }
                     },
                     scales: {
                         x: {
+                            type: 'linear',
                             title: {
                                 display: true,
-                                text: 'Basınç (bar)',
+                                text: 'Sıcaklık (°C)',
                                 font: {
                                     size: 14
                                 }
                             }
                         },
                         y: {
+                            type: 'linear',
                             title: {
                                 display: true,
-                                text: 'Sıcaklık (°C)',
+                                text: 'Basınç (bar)',
                                 font: {
                                     size: 14
                                 }
