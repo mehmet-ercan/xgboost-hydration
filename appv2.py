@@ -55,7 +55,6 @@ def index():
                     continue
 
                 val = request.form.get(f, "")
-
                 if val == "":
                     user_values[f] = float(defaults[f])
                     user_inputs[f] = float(defaults[f])
@@ -63,12 +62,9 @@ def index():
                     user_values[f] = float(val)
                     user_inputs[f] = float(val)
 
-            # DataFrame oluştur (sadece ham kolonlarla - 16 adet)
             input_df = pd.DataFrame([user_inputs])
-            
-            # Pipeline otomatik FE yapıp tahmin eder
             y_pred = model.predict(input_df)[0]
-            prediction = float(y_pred)
+            prediction = round(float(y_pred), 2)  # ← 2 ondalık
 
         except Exception as e:
             prediction = f"Hata: {e}"
@@ -101,52 +97,141 @@ def feature_schema():
 @app.route("/api/predict", methods=["POST"])
 def api_predict():
     try:
-        payload = request.get_json(force=True, silent=False)
+        payload = request.get_json(force=True)
         if payload is None:
             return jsonify({"error": "JSON bekleniyor."}), 400
             
-        # Hem {"features": {...}} hem de düz dict destekle
-        if isinstance(payload, dict) and "features" in payload and isinstance(payload["features"], dict):
-            feats = payload["features"]
-        elif isinstance(payload, dict):
-            feats = payload
-        else:
-            return jsonify({"error": "Gecersiz JSON formati."}), 400
-            
+        feats = payload.get("features", payload)
         used = {}
         missing = []
-        bad_values = {}
         
         for name in feature_names:
-            raw = feats.get(name, None)
+            raw = feats.get(name)
             if raw is None or raw == "":
                 used[name] = float(defaults[name])
                 missing.append(name)
             else:
                 try:
                     used[name] = float(raw)
-                except Exception:
+                except:
                     used[name] = float(defaults[name])
-                    bad_values[name] = raw
         
-        # DataFrame oluştur
         input_df = pd.DataFrame([used])
-        
-        # Pipeline tahmin yapar (FE otomatik)
         y_pred = model.predict(input_df)[0]
-        pred = float(y_pred)
         
         resp = {
-            "prediction": pred,
+            "prediction": round(float(y_pred), 2),  # ← 2 ondalık
             "units": "C",
-            "used_features": used,
+            "used_features": used
         }
         if missing:
             resp["filled_with_defaults"] = missing
-        if bad_values:
-            resp["coerced_to_defaults_due_to_parse_error"] = bad_values
             
         return jsonify(resp)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/curve", methods=["GET", "POST"])
+def curve():
+    curve_data = None
+    user_values = defaults.copy()
+    
+    if request.method == "POST":
+        try:
+            # Kullanıcıdan değerleri al
+            p_min = float(request.form.get("p_min", 10))
+            p_max = float(request.form.get("p_max", 100))
+            n_points = int(request.form.get("n_points", 20))
+            
+            # Kompozisyon değerlerini al
+            comp_inputs = {}
+            for f in feature_names:
+                if f == "Pc":
+                    continue  # Pc'yi döngüde hesaplayacağız
+                elif f == "H2O":
+                    comp_inputs[f] = 0.07
+                    user_values[f] = 0.07
+                else:
+                    val = request.form.get(f, "")
+                    if val == "":
+                        comp_inputs[f] = float(defaults[f])
+                        user_values[f] = float(defaults[f])
+                    else:
+                        comp_inputs[f] = float(val)
+                        user_values[f] = float(val)
+            
+            # Basınç aralığını oluştur
+            pressures = []
+            step = (p_max - p_min) / (n_points - 1)
+            for i in range(n_points):
+                pressures.append(p_min + i * step)
+            
+            # Her basınç için tahmin yap
+            temperatures = []
+            for p in pressures:
+                input_data = comp_inputs.copy()
+                input_data["Pc"] = p
+                input_df = pd.DataFrame([input_data])
+                temp = model.predict(input_df)[0]
+                temperatures.append(float(temp))
+            
+            curve_data = {
+                "pressures": pressures,
+                "temperatures": temperatures,
+                "p_min": p_min,
+                "p_max": p_max,
+                "n_points": n_points
+            }
+            
+        except Exception as e:
+            curve_data = {"error": str(e)}
+    
+    return render_template(
+        "curve.html",
+        feature_names=[f for f in feature_names if f != "Pc"],  # Pc'yi çıkar
+        defaults=defaults,
+        user_values=user_values,
+        curve_data=curve_data
+    )
+
+@app.route("/api/predict-curve", methods=["POST"])
+def api_predict_curve():
+    try:
+        payload = request.get_json(force=True)
+        
+        p_min = float(payload.get("p_min", 10))
+        p_max = float(payload.get("p_max", 100))
+        n_points = int(payload.get("n_points", 20))
+        composition = payload.get("composition", {})
+        
+        # Kompozisyonu defaults ile doldur
+        comp = defaults.copy()
+        for key, val in composition.items():
+            if key != "Pc":
+                comp[key] = float(val)
+        
+        # Basınç aralığı
+        pressures = []
+        step = (p_max - p_min) / (n_points - 1)
+        for i in range(n_points):
+            pressures.append(p_min + i * step)
+        
+        # Tahminler
+        temperatures = []
+        for p in pressures:
+            comp["Pc"] = p
+            input_df = pd.DataFrame([comp])
+            temp = model.predict(input_df)[0]
+            temperatures.append(float(temp))
+        
+        return jsonify({
+            "pressures": pressures,
+            "temperatures": temperatures,
+            "p_min": p_min,
+            "p_max": p_max,
+            "n_points": n_points
+        })
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css')}}">
+    <title>Hidrat Eğrisi Çizimi</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- <script src="chart.umd.min.js"></script> -->
+</head>
+<body>
+<div class="container">
+    <h2 class="baslik">Hidrat Eğrisi Çizimi</h2>
+    
+    <form method="POST">
+        <!-- Basınç Aralığı -->
+        <div style="background:#f0f0f0; padding:15px; margin:20px 0; border-radius:5px;">
+            <h3>Basınç Aralığı</h3>
+            <div class="input-group">
+                <label>Minimum Basınç (bar)</label>
+                <input type="number" step="any" name="p_min" value="10" style="width:75%">
+            </div>
+            <div class="input-group">
+                <label>Maximum Basınç (bar)</label>
+                <input type="number" step="any" name="p_max" value="100" style="width:75%">
+            </div>
+            <div class="input-group">
+                <label>Nokta Sayısı</label>
+                <input type="number" step="1" name="n_points" value="20" style="width:75%">
+            </div>
+        </div>
+
+        <!-- Kompozisyon -->
+        <h3>Kompozisyon</h3>
+        <div class="form-container">
+            {% for feature in feature_names %}
+                <div class="input-group">
+                    <label>{{ feature }}</label>
+                    {% if feature == "H2O" %}
+                        <input type="number"
+                            step="any"
+                            name="{{ feature }}"
+                            value="0.07"
+                            readonly
+                            style="width:75%; background:#f0f0f0; cursor:not-allowed;">
+                    {% else %}
+                        <input type="number"
+                            step="any"
+                            name="{{ feature }}"
+                            value="{{ user_values[feature] }}"
+                            style="width:75%">
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        
+        <input type="submit" value="Eğri Çiz" style="margin-top:20px;">
+    </form>
+
+    {% if curve_data %}
+        {% if curve_data.error %}
+            <div class="result" style="background:#ffcccc;">
+                <strong>Hata:</strong> {{ curve_data.error }}
+            </div>
+        {% else %}
+            <div style="margin-top:30px; background:white; padding:20px; border-radius:5px;">
+                <h3>Hidrat Eğrisi</h3>
+                <canvas id="curveChart"></canvas>
+                
+                <div style="margin-top:20px;">
+                    <strong>Detaylar:</strong>
+                    <ul>
+                        <li>Basınç Aralığı: {{ curve_data.p_min }} - {{ curve_data.p_max }} bar</li>
+                        <li>Nokta Sayısı: {{ curve_data.n_points }}</li>
+                    </ul>
+                </div>
+            </div>
+
+            <script>
+                const ctx = document.getElementById('curveChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: {{ curve_data.pressures | tojson }},
+                        datasets: [{
+                            label: 'Hidrat Eğrisi',
+                            data: {{ curve_data.temperatures | tojson }},
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            tension: 0.3,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Pressure (bar) vs Temperature (°C)'
+                            },
+                            legend: {
+                                display: true
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Pressure (bar)'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Temperature (°C)'
+                                }
+                            }
+                        }
+                    }
+                });
+            </script>
+        {% endif %}
+    {% endif %}
+</div>
+</body>
+</html>
