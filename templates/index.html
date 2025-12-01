@@ -3,21 +3,38 @@
 <head>
 	<link rel="stylesheet" href="{{ url_for('static', filename='styles.css')}}">
     <title>Hidratlaşma Sıcaklık Tahmin Programı (XGBoost ile)</title>
+    <script src="{{ url_for('static', filename='chart.umd.min.js')}}"></script>
 </head>
 <body>
 <div class="container">
     <h2 class="baslik">Hidratlaşma Sıcaklık Tahmin Programı</h2>
-    <div style="margin-bottom: 20px;">
-        <a href="/curve" style="display:inline-block; padding:10px 20px; background:#007bff; color:white; text-decoration:none; border-radius:5px;">
-            📈 Hidrat Eğrisi Çiz
-        </a>
-    </div>
+    
     <form method="POST">
+        <!-- Basınç Aralığı -->
+        <div style="background:#e3f2fd; padding:15px; margin:20px 0; border-radius:8px; border:2px solid #2196f3;">
+            <h3 style="margin-top:0; color:#1976d2;">⚙️ Basınç Aralığı Ayarları</h3>
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px;">
+                <div class="input-group">
+                    <label>Minimum Basınç (bar)</label>
+                    <input type="number" step="any" name="p_min" value="{{ p_min }}" style="width:90%">
+                </div>
+                <div class="input-group">
+                    <label>Maximum Basınç (bar)</label>
+                    <input type="number" step="any" name="p_max" value="{{ p_max }}" style="width:90%">
+                </div>
+                <div class="input-group">
+                    <label>Nokta Sayısı</label>
+                    <input type="number" step="1" name="n_points" value="{{ n_points }}" style="width:90%">
+                </div>
+            </div>
+        </div>
+
+        <!-- Kompozisyon -->
+        <h3>📊 Gaz Kompozisyonu</h3>
 		<div class="form-container">
             {% for feature in feature_names %}
                 <div class="input-group">
                     <label>{{ feature }}</label>
-
                     {% if feature == "H2O" %}
                         <input type="number"
                             step="any"
@@ -35,12 +52,98 @@
                 </div>
             {% endfor %}
 		</div>
-        <input type="submit" value="Tahmin Et" style="margin-top:20px;">
+        
+        <input type="submit" value="Tahmin Et ve Eğri Çiz" style="margin-top:20px; font-size:16px; padding:12px 30px;">
     </form>
+
     {% if prediction is not none %}
         <div class="result">
-            <strong>Temperature (C):</strong> {{ prediction }}
+            <strong>Orta Nokta Tahmini ({{ ((p_min + p_max) / 2)|round(2) }} bar):</strong> {{ prediction }} °C
         </div>
+    {% endif %}
+
+    {% if curve_data %}
+        <div style="margin-top:30px; background:white; padding:20px; border-radius:8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <h3 style="color:#1976d2;">📈 Hidrat Eğrisi</h3>
+            <canvas id="curveChart"></canvas>
+            
+            <div style="margin-top:20px; padding:15px; background:#f5f5f5; border-radius:5px;">
+                <strong>Detaylar:</strong>
+                <ul style="margin:10px 0;">
+                    <li>Basınç Aralığı: {{ p_min }} - {{ p_max }} bar</li>
+                    <li>Nokta Sayısı: {{ n_points }}</li>
+                    <li>Min Sıcaklık: {{ curve_data.temperatures|min }} °C</li>
+                    <li>Max Sıcaklık: {{ curve_data.temperatures|max }} °C</li>
+                </ul>
+            </div>
+        </div>
+
+        <script>
+            const ctx = document.getElementById('curveChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: {{ curve_data.pressures | tojson }},
+                    datasets: [{
+                        label: 'Hidrat Eğrisi',
+                        data: {{ curve_data.temperatures | tojson }},
+                        borderColor: 'rgb(33, 150, 243)',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Basınç (bar) - Sıcaklık (°C) İlişkisi',
+                            font: {
+                                size: 16
+                            }
+                        },
+                        legend: {
+                            display: true
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Sıcaklık: ' + context.parsed.y + ' °C';
+                                },
+                                title: function(context) {
+                                    return 'Basınç: ' + context[0].parsed.x + ' bar';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Basınç (bar)',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Sıcaklık (°C)',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        </script>
     {% endif %}
 </div>
 </body>

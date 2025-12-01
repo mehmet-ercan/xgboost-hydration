@@ -3,8 +3,8 @@
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css')}}">
     <title>Hidrat Eğrisi Çizimi</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- <script src="chart.umd.min.js"></script> -->
+    <!--<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>-->
+    <script src="{{ url_for('static', filename='chart.umd.min.js')}}"></script>
 </head>
 <body>
 <div class="container">
@@ -98,6 +98,16 @@
                             },
                             legend: {
                                 display: true
+                            },
+                            tooltip: {  // ← Tooltip formatı
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Temp: ' + context.parsed.y.toFixed(2) + ' °C';
+                                    },
+                                    title: function(context) {
+                                        return 'Pressure: ' + context[0].parsed.x.toFixed(2) + ' bar';
+                                    }
+                                }
                             }
                         },
                         scales: {
@@ -105,12 +115,22 @@
                                 title: {
                                     display: true,
                                     text: 'Pressure (bar)'
+                                },
+                                ticks: {  // ← X ekseni formatı
+                                    callback: function(value, index, values) {
+                                        return value.toFixed(2);
+                                    }
                                 }
                             },
                             y: {
                                 title: {
                                     display: true,
                                     text: 'Temperature (°C)'
+                                },
+                                ticks: {  // ← Y ekseni formatı
+                                    callback: function(value, index, values) {
+                                        return value.toFixed(2);
+                                    }
                                 }
                             }
                         }

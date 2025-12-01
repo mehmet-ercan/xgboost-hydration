@@ -42,39 +42,80 @@ defaults = sample_input
 @app.route("/", methods=["GET", "POST"])
 def index():
     prediction = None
+    curve_data = None
     user_values = defaults.copy()
+    
+    # Basınç aralığı default değerleri
+    p_min = 10
+    p_max = 100
+    n_points = 20
 
     if request.method == "POST":
         try:
+            # Basınç aralığı değerlerini al
+            p_min = float(request.form.get("p_min", 10))
+            p_max = float(request.form.get("p_max", 100))
+            n_points = int(request.form.get("n_points", 20))
+            
+            # Kompozisyon değerlerini al
             user_inputs = {}
-
             for f in feature_names:
-                if f == "H2O":
+                if f == "Pc":
+                    continue  # Pc'yi döngüde kullanacağız
+                elif f == "H2O":
                     user_values[f] = 0.07
                     user_inputs[f] = 0.07
-                    continue
-
-                val = request.form.get(f, "")
-                if val == "":
-                    user_values[f] = float(defaults[f])
-                    user_inputs[f] = float(defaults[f])
                 else:
-                    user_values[f] = float(val)
-                    user_inputs[f] = float(val)
+                    val = request.form.get(f, "")
+                    if val == "":
+                        user_values[f] = float(defaults[f])
+                        user_inputs[f] = float(defaults[f])
+                    else:
+                        user_values[f] = float(val)
+                        user_inputs[f] = float(val)
 
-            input_df = pd.DataFrame([user_inputs])
+            # Tek nokta tahmini (ortadaki basınç değeri ile)
+            mid_pressure = (p_min + p_max) / 2
+            single_input = user_inputs.copy()
+            single_input["Pc"] = mid_pressure
+            input_df = pd.DataFrame([single_input])
             y_pred = model.predict(input_df)[0]
-            prediction = round(float(y_pred), 2)  # ← 2 ondalık
+            prediction = round(float(y_pred), 2)
+
+            # Eğri için tahminler
+            pressures = []
+            temperatures = []
+            step = (p_max - p_min) / (n_points - 1) if n_points > 1 else 0
+            
+            for i in range(n_points):
+                p = round(p_min + i * step, 2)
+                pressures.append(p)
+                
+                curve_input = user_inputs.copy()
+                curve_input["Pc"] = p
+                curve_df = pd.DataFrame([curve_input])
+                temp = model.predict(curve_df)[0]
+                temperatures.append(round(float(temp), 2))
+            
+            curve_data = {
+                "pressures": pressures,
+                "temperatures": temperatures
+            }
 
         except Exception as e:
             prediction = f"Hata: {e}"
+            curve_data = None
 
     return render_template(
         "index.html",
-        feature_names=feature_names,
+        feature_names=[f for f in feature_names if f != "Pc"],  # Pc'yi çıkar
         defaults=defaults,
         prediction=prediction,
-        user_values=user_values
+        user_values=user_values,
+        curve_data=curve_data,
+        p_min=p_min,
+        p_max=p_max,
+        n_points=n_points
     )
 
 # ============================================================

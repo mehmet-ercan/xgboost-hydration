@@ -29,7 +29,7 @@ call :check_and_install numpy
 call :check_and_install flask_cors
 call :check_and_install xgboost
 call :check_and_install pandas
-call :check_and_install scikit-learn sklearn
+call :check_and_install scikit-learn
 
 echo.
 echo Uygulama baslatiliyor, lutfen bekleyin
